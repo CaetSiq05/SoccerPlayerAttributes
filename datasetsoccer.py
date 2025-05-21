@@ -12,3 +12,5 @@ df = pd.read_sql_query("SELECT * FROM Player_Attributes", conn)
 
 # Exibe os primeiros registros pra confirmar
 print(df)
+
+print(list(df.columns))
