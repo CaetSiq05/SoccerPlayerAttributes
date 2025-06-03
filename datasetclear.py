@@ -10,8 +10,14 @@ conn = sqlite3.connect(caminho_db)
 # Lê a tabela 'Player_Attributes' e salva no DataFrame df
 df = pd.read_sql_query("SELECT * FROM Player_Attributes", conn)
 
+# Remover colunas com valores NaN
+df.dropna(axis=0, inplace=True)
+
+# Remover duplicatas, mantendo o menor 'id'
+df_limpo = df.sort_values('id').drop_duplicates(subset='player_fifa_api_id', keep='first')
+
 # List of columns to be dropped
-columns_to_drop = ['id', 'player_fifa_api_id', 'player_api_id', 'date',
+columns_to_drop = ['id', 'player_api_id', 'date',
                    'gk_diving', 'gk_handling', 'gk_kicking', 'gk_positioning', 'gk_reflexes']
 
 # Drop the specified columns
@@ -25,7 +31,7 @@ pd.set_option('display.max_columns', None)
 print(df)
 
 # Salvar o dataframe como CSV (sem índice extra)
-df.to_csv('C:/Users/Eve/Desktop/Repositorio ETD/SoccerPlayerAttributes/dataset_limpo.csv', index=False)
+df.to_csv('C:/Users/Eve/Desktop/Repositorio ETD/SoccerPlayerAttributes/dataset_limpo2.csv', index=False)
 
 print("Arquivo CSV salvo com sucesso!")
 

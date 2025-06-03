@@ -8,3 +8,5 @@ df = pd.read_csv(caminho_csv)
 
 # Mostrar as primeiras 5 linhas
 print(df)
+
+print(df.columns)
