@@ -1,38 +1,33 @@
 import sqlite3
 import pandas as pd
 
-# Caminho para seu arquivo SQLite no Google Drive (ajuste se necessário)
+# Caminho para seu arquivo SQLite
 caminho_db = r'C:\Users\Eve\Desktop\Repositorio ETD\SoccerPlayerAttributes\database.sqlite'
 
 # Conecta ao banco de dados
 conn = sqlite3.connect(caminho_db)
 
-# Lê a tabela 'Player_Attributes' e salva no DataFrame df
+# Lê a tabela 'Player_Attributes' e salva no DataFrame
 df = pd.read_sql_query("SELECT * FROM Player_Attributes", conn)
 
-# Remover colunas com valores NaN
+# Remove linhas com valores ausentes
 df.dropna(axis=0, inplace=True)
 
-# Remover duplicatas, mantendo o menor 'id'
-df_limpo = df.sort_values('id').drop_duplicates(subset='player_fifa_api_id', keep='first')
+# Remove duplicatas com base em 'player_fifa_api_id', mantendo o menor 'id'
+df = df.sort_values('id').drop_duplicates(subset='player_fifa_api_id', keep='first')
 
-# List of columns to be dropped
+# Remove colunas desnecessárias
 columns_to_drop = ['id', 'player_api_id', 'date',
                    'gk_diving', 'gk_handling', 'gk_kicking', 'gk_positioning', 'gk_reflexes']
-
-# Drop the specified columns
 df = df.drop(columns=columns_to_drop, errors='ignore')
 
-
-# Ajustar para mostrar todas as colunas
+# Mostra todas as colunas no print
 pd.set_option('display.max_columns', None)
 
-# Mostrar os 5 primeiros e os 5 últimos registros com todas as colunas
+# Mostra os 5 primeiros e os 5 últimos registros
 print(df)
 
-# Salvar o dataframe como CSV (sem índice extra)
-df.to_csv('C:/Users/Eve/Desktop/Repositorio ETD/SoccerPlayerAttributes/dataset_limpo2.csv', index=False)
+# Salva o DataFrame como CSV
+df.to_csv('C:/Users/Eve/Desktop/Repositorio ETD/SoccerPlayerAttributes/dataset_limpo3.csv', index=False)
 
-print("Arquivo CSV salvo com sucesso!")
-
-
+print("✅ Arquivo CSV salvo com sucesso sem duplicatas de ID!")
