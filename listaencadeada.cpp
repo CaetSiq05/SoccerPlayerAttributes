@@ -260,7 +260,7 @@ void liberarLista(Jogador* inicio) {
 }
 
 int main() {
-    string nomeArquivo = "dataset_limpo2.csv";
+    string nomeArquivo = "dataset_limpo3.csv";
     Jogador* lista = lerCSV(nomeArquivo);
 
     int opcao;
