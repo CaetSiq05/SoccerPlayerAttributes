@@ -1,11 +1,10 @@
 #include <iostream>
-#include <fstream>
-#include <sstream>
 #include <vector>
 #include <string>
-#include <cstdlib>
-#include <ctime>
-#include <algorithm>
+#include <fstream>
+#include <sstream>
+#include <cmath>
+#include <chrono>
 using namespace std;
 
 struct Player {
@@ -13,131 +12,111 @@ struct Player {
     float overall_rating;
     float potential;
     string preferred_foot;
-    string attacking_work_rate;
-    string defensive_work_rate;
-    float crossing, finishing, heading_accuracy, short_passing, volleys, dribbling;
-    float curve, free_kick_accuracy, long_passing, ball_control, acceleration;
-    float sprint_speed, agility, reactions, balance, shot_power, jumping;
-    float stamina, strength, long_shots, aggression, interceptions, positioning;
-    float vision, penalties, marking, standing_tackle, sliding_tackle;
 
     void print() const {
-        cout << "ID: " << player_fifa_api_id << " | Overall: " << overall_rating
-             << " | Potential: " << potential << " | Foot: " << preferred_foot
-             << " | Finishing: " << finishing << " | Curve: " << curve
-             << " | Penalties: " << penalties << endl;
+        cout << "ID: " << player_fifa_api_id
+             << " | Overall: " << overall_rating
+             << " | Potential: " << potential
+             << " | Foot: " << preferred_foot << endl;
     }
 };
 
 class Node {
 public:
-    float key;
-    vector<Player> players;
+    int id;
+    Player player;
     vector<Node*> forward;
 
-    Node(float k, const Player& p, int level) : key(k) {
-        players.push_back(p);
+    Node(int id, const Player& p, int level) : id(id), player(p) {
         forward.resize(level + 1, nullptr);
     }
 };
 
 class SkipList {
+private:
     int maxLevel;
     float probability;
     Node* header;
 
-public:
-    SkipList(int maxLevel, float probability) {
-        this->maxLevel = maxLevel;
-        this->probability = probability;
-        header = new Node(-1, {}, maxLevel);
-        srand(time(0));
-    }
-
     int randomLevel() {
         int lvl = 0;
-        while ((float)rand() / RAND_MAX < probability && lvl < maxLevel) {
+        while (((float)rand() / RAND_MAX) < probability && lvl < maxLevel) {
             lvl++;
         }
         return lvl;
     }
 
-    void insert(float key, const Player& player) {
+public:
+    SkipList(int maxLevel, float probability) : maxLevel(maxLevel), probability(probability) {
+        header = new Node(-1, {}, maxLevel);
+    }
+
+    void insert(int id, const Player& player) {
         vector<Node*> update(maxLevel + 1);
         Node* current = header;
 
         for (int i = maxLevel; i >= 0; i--) {
-            while (current->forward[i] != nullptr && current->forward[i]->key < key) {
+            while (current->forward[i] && current->forward[i]->id < id) {
                 current = current->forward[i];
             }
             update[i] = current;
         }
 
         current = current->forward[0];
-
-        if (current != nullptr && current->key == key) {
-            current->players.push_back(player);
+        if (current && current->id == id) {
+            current->player = player; // Atualiza se já existir
         } else {
-            int rlevel = randomLevel();
-            Node* n = new Node(key, player, rlevel);
-            for (int i = 0; i <= rlevel; i++) {
-                n->forward[i] = update[i]->forward[i];
-                update[i]->forward[i] = n;
+            int lvl = randomLevel();
+            Node* newNode = new Node(id, player, lvl);
+            for (int i = 0; i <= lvl; i++) {
+                newNode->forward[i] = update[i]->forward[i];
+                update[i]->forward[i] = newNode;
             }
         }
     }
 
-    vector<Player>* search(float key) {
+    Player* search(int id) {
         Node* current = header;
         for (int i = maxLevel; i >= 0; i--) {
-            while (current->forward[i] && current->forward[i]->key < key) {
+            while (current->forward[i] && current->forward[i]->id < id) {
                 current = current->forward[i];
             }
         }
         current = current->forward[0];
-        if (current && current->key == key) {
-            return &current->players;
+        if (current && current->id == id) {
+            return &current->player;
         }
         return nullptr;
     }
 
-    void remove(float key) {
+    bool remove(int id) {
         vector<Node*> update(maxLevel + 1);
         Node* current = header;
 
         for (int i = maxLevel; i >= 0; i--) {
-            while (current->forward[i] && current->forward[i]->key < key) {
+            while (current->forward[i] && current->forward[i]->id < id) {
                 current = current->forward[i];
             }
             update[i] = current;
         }
 
         current = current->forward[0];
-
-        if (current && current->key == key) {
+        if (current && current->id == id) {
             for (int i = 0; i <= maxLevel; i++) {
-                if (update[i]->forward[i] != current)
-                    break;
+                if (update[i]->forward[i] != current) break;
                 update[i]->forward[i] = current->forward[i];
             }
             delete current;
+            return true;
         }
+        return false;
     }
 
     void display() const {
-        vector<Node*> nodes;
-        Node* node = header->forward[0];
-        while (node != nullptr) {
-            nodes.push_back(node);
-            node = node->forward[0];
-        }
-        sort(nodes.begin(), nodes.end(), [](Node* a, Node* b) {
-            return a->key > b->key;
-        });
-        for (Node* n : nodes) {
-            for (const Player& p : n->players) {
-                p.print();
-            }
+        Node* current = header->forward[0];
+        while (current) {
+            current->player.print();
+            current = current->forward[0];
         }
     }
 };
@@ -151,68 +130,48 @@ Player parseCSVLine(const string& line) {
     getline(ss, token, ','); p.overall_rating = stof(token);
     getline(ss, token, ','); p.potential = stof(token);
     getline(ss, p.preferred_foot, ',');
-    getline(ss, p.attacking_work_rate, ',');
-    getline(ss, p.defensive_work_rate, ',');
 
-    float* attrs[] = {
-        &p.crossing, &p.finishing, &p.heading_accuracy, &p.short_passing,
-        &p.volleys, &p.dribbling, &p.curve, &p.free_kick_accuracy, &p.long_passing,
-        &p.ball_control, &p.acceleration, &p.sprint_speed, &p.agility,
-        &p.reactions, &p.balance, &p.shot_power, &p.jumping, &p.stamina,
-        &p.strength, &p.long_shots, &p.aggression, &p.interceptions, &p.positioning,
-        &p.vision, &p.penalties, &p.marking, &p.standing_tackle, &p.sliding_tackle
-    };
-
-    for (float* attr : attrs) {
-        getline(ss, token, ',');
-        *attr = stof(token);
-    }
     return p;
 }
 
 int main() {
     SkipList skiplist(5, 0.5);
-    string path = "dataset_limpo3.csv";
-    ifstream file(path);
+
+    ifstream file("dataset_limpo3.csv");
     string line;
-    getline(file, line);
+    getline(file, line); // Pula cabeçalho
+
     while (getline(file, line)) {
         Player p = parseCSVLine(line);
-        skiplist.insert(p.overall_rating, p);
+        skiplist.insert(p.player_fifa_api_id, p);
     }
     file.close();
 
     int opcao;
     do {
-        cout << "\nMenu:\n1. Inserir\n2. Buscar\n3. Remover\n4. Imprimir\n5. Sair\nOpcao: ";
+        cout << "\n1. Inserir\n2. Buscar\n3. Remover\n4. Mostrar Todos\n5. Sair\nEscolha: ";
         cin >> opcao;
+
         if (opcao == 1) {
             Player p;
             cout << "ID: "; cin >> p.player_fifa_api_id;
             cout << "Overall: "; cin >> p.overall_rating;
             cout << "Potential: "; cin >> p.potential;
             cout << "Preferred Foot: "; cin >> p.preferred_foot;
-            cout << "Finishing: "; cin >> p.finishing;
-            cout << "Curve: "; cin >> p.curve;
-            cout << "Penalties: "; cin >> p.penalties;
-            skiplist.insert(p.overall_rating, p);
+            skiplist.insert(p.player_fifa_api_id, p);
         } else if (opcao == 2) {
-            float key;
-            cout << "Digite o overall_rating: ";
-            cin >> key;
-            vector<Player>* results = skiplist.search(key);
-            if (results) {
-                for (const Player& p : *results) {
-                    p.print();
-                }
-            } else {
-                cout << "Nenhum jogador encontrado com essa nota.\n";
-            }
+            int id;
+            cout << "Digite o ID: ";
+            cin >> id;
+            Player* found = skiplist.search(id);
+            if (found) found->print();
+            else cout << "Jogador nao encontrado.\n";
         } else if (opcao == 3) {
-            float key;
-            cout << "Digite o overall_rating: ";
-            cin >> key;
-            skiplist.remove(key);
+            int id;
+            cout << "Digite o ID: ";
+            cin >> id;
+            if (skiplist.remove(id)) cout << "Removido com sucesso!\n";
+            else cout << "Jogador nao encontrado.\n";
         } else if (opcao == 4) {
             skiplist.display();
         }
