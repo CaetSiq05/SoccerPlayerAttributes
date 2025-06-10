@@ -5,6 +5,7 @@
 #include <string>
 #include <chrono> //biblioteca medir tempo de execucao
 #include <random> //biblioteca sortear aleatorio (tempo medio de acesso)
+#include <cmath> // para sqrt
 
 using namespace std;
 using namespace chrono;
@@ -418,6 +419,64 @@ void testarEscalabilidadeELatencia(const string& nomeArquivo) {
 }
 
 
+//Cálculo estatístico sobre os dados
+void estatisticasLista(Jogador* lista) {
+    int count = 0;
+    float soma = 0.0, somaQuadrados = 0.0;
+
+    Jogador* atual = lista;
+    while (atual != nullptr) {
+        float rating = atual->overall_rating;
+        soma += rating;
+        somaQuadrados += rating * rating;
+        count++;
+        atual = atual->proximo;
+    }
+
+    if (count == 0) {
+        cout << "Lista vazia.\n";
+        return;
+    }
+
+    float media = soma / count;
+    float variancia = (somaQuadrados / count) - (media * media);
+    float desvioPadrao = sqrt(variancia);
+
+    cout << "Média do Overall Rating: " << media << endl;
+    cout << "Desvio padrão: " << desvioPadrao << endl;
+}
+
+//agrupamento
+void agruparPorPreferredFoot(Jogador* inicio) {
+    Jogador* atual = inicio;
+    cout << "\n--- Jogadores com pé preferido: Right ---\n";
+    while (atual != nullptr) {
+        if (atual->preferred_foot == "right")
+            cout << "ID: " << atual->player_fifa_api_id << " | Overall: " << atual->overall_rating << endl;
+        atual = atual->proximo;
+    }
+
+    atual = inicio;
+    cout << "\n--- Jogadores com pé preferido: Left ---\n";
+    while (atual != nullptr) {
+        if (atual->preferred_foot == "left")
+            cout << "ID: " << atual->player_fifa_api_id << " | Overall: " << atual->overall_rating << endl;
+        atual = atual->proximo;
+    }
+}
+
+//filtragem jogadores com >overall
+void filtrarPorOverall(Jogador* inicio, float minimo) {
+    Jogador* atual = inicio;
+    cout << "\n--- Jogadores com Overall >= " << minimo << " ---\n";
+    while (atual != nullptr) {
+        if (atual->overall_rating >= minimo)
+            cout << "ID: " << atual->player_fifa_api_id << " | Overall: " << atual->overall_rating << endl;
+        atual = atual->proximo;
+    }
+}
+
+
 int main() {
     string nomeArquivo = "dataset_limpo3.csv";
     Jogador* lista = lerCSV(nomeArquivo);
@@ -432,7 +491,10 @@ int main() {
         cout << "5. Uso de memoria\n";
         cout << "6. Tempo medio de Acesso\n";
         cout << "7. Escalabilidade e latência média\n";
-        cout << "8. Sair\n";
+        cout << "8. Cálculo estatístico sobre os dados\n";
+        cout << "9. Agrupar por PreferredFoot\n";
+        cout << "10. Filtragem por Overall\n";
+        cout << "11. Sair\n";
         cout << "Escolha uma opcao: ";
         cin >> opcao;
 
@@ -507,14 +569,31 @@ int main() {
                 break;
                 }
 
-            case 8:
+            case 8:{
+                estatisticasLista(lista);
+                break;
+                }
+
+            case 9:{
+                agruparPorPreferredFoot(lista);
+                break;}
+
+            case 10:{
+                float minimo;
+                cout << "Digite o mínimo de overall: ";
+                cin >> minimo;
+                filtrarPorOverall(lista, minimo);
+                    break;}
+
+            case 11:{
                 cout << "Encerrando programa...\n";
                 liberarLista(lista);
-                break;
+                break;}
+
             default:
                 cout << "Opcao invalida!\n";
-        }
-    } while (opcao != 8);
+            }
+    } while (opcao != 11);
 
     return 0;
 }
