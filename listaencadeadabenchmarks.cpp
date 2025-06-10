@@ -3,7 +3,9 @@
 #include <sstream>
 #include <vector>
 #include <string>
-#include <chrono>
+#include <chrono> //biblioteca medir tempo de execucao
+#include <random> //biblioteca sortear aleatorio (tempo medio de acesso)
+
 using namespace std;
 using namespace chrono;
 
@@ -265,6 +267,157 @@ void liberarLista(Jogador* inicio) {
     }
 }
 
+// contar nos
+int contarNos(Jogador* lista) {
+    int count = 0;
+    while (lista != nullptr) {
+        count++;
+        lista = lista->proximo;
+    }
+    return count;
+}
+
+//Medir Tempo Médio de Acesso
+vector<int> coletarIDs(Jogador* lista) {
+    vector<int> ids;
+    while (lista != nullptr) {
+        ids.push_back(lista->player_fifa_api_id);
+        lista = lista->proximo;
+    }
+    return ids;
+}
+
+void medirTempoMedioAcesso(Jogador* lista, int numBuscas) {
+    // Coleta todos os IDs válidos da lista
+    vector<int> ids = coletarIDs(lista);
+
+    // Sorteador aleatório
+    random_device rd;
+    mt19937 gen(rd());
+    uniform_int_distribution<> dis(0, ids.size() - 1);
+
+    double somaTempos = 0;
+
+    for (int i = 0; i < numBuscas; i++) {
+        int idAleatorio = ids[dis(gen)]; // sorteia um ID válido
+
+        auto start = chrono::high_resolution_clock::now();
+        buscarJogador(lista, idAleatorio);
+        auto end = chrono::high_resolution_clock::now();
+
+        double tempo = chrono::duration<double, micro>(end - start).count();
+        somaTempos += tempo;
+    }
+
+    double media = somaTempos / numBuscas;
+    cout << "Tempo médio de acesso: " << media << " µs" << endl;
+}
+
+//
+
+Jogador* lerCSVLimitado(const string& nomeArquivo, int maxLinhas) {
+    ifstream arquivo(nomeArquivo);
+    if (!arquivo.is_open()) {
+        cout << "Erro ao abrir o arquivo CSV." << endl;
+        return nullptr;
+    }
+
+    string linha;
+    getline(arquivo, linha); // Ignora cabeçalho
+
+    Jogador* inicio = nullptr;
+    Jogador* atual = nullptr;
+
+    int count = 0;
+    while (getline(arquivo, linha) && count < maxLinhas) {
+        vector<string> dados = split(linha, ',');
+        Jogador* novo = criarJogador(dados);
+        if (novo != nullptr) {
+            if (!inicio) {
+                inicio = novo;
+                atual = novo;
+            } else {
+                atual->proximo = novo;
+                atual = novo;
+            }
+            count++;
+        }
+    }
+
+    arquivo.close();
+    return inicio;
+}
+
+//Escalabilidade e latencia
+void testarEscalabilidadeELatencia(const string& nomeArquivo) {
+    vector<int> tamanhos = {1000, 5000, 10000, 20000};
+
+    for (int tamanho : tamanhos) {
+        cout << "\n🔍 Testando com " << tamanho << " jogadores..." << endl;
+
+        Jogador* lista = lerCSVLimitado(nomeArquivo, tamanho);
+        vector<int> ids = coletarIDs(lista);
+
+        if (ids.empty()) {
+            cout << "Lista vazia. Pulando..." << endl;
+            continue;
+        }
+
+        // Inicializa aleatoriedade
+        random_device rd;
+        mt19937 gen(rd());
+        uniform_int_distribution<> dis(0, ids.size() - 1);
+
+        double somaBusca = 0;
+        double somaLatencia = 0;
+
+        for (int i = 0; i < 100; i++) {
+            int id = ids[dis(gen)];
+
+            // -------- Tempo de busca (Escalabilidade)
+            auto startBusca = chrono::high_resolution_clock::now();
+            buscarJogador(lista, id);
+            auto endBusca = chrono::high_resolution_clock::now();
+            somaBusca += chrono::duration<double, micro>(endBusca - startBusca).count();
+
+            // -------- Tempo de Latência (inserir + buscar + remover)
+            Jogador* novo = new Jogador;
+            novo->player_fifa_api_id = 999999 + i;
+            novo->overall_rating = 70;
+            novo->potential = 80;
+            novo->preferred_foot = "right";
+            novo->attacking_work_rate = "high";
+            novo->defensive_work_rate = "medium";
+            novo->finishing = novo->curve = novo->penalties = 50;
+            novo->proximo = nullptr;
+
+            auto startLatencia = chrono::high_resolution_clock::now();
+
+            // Inserção no início
+            novo->proximo = lista;
+            lista = novo;
+
+            // Busca
+            buscarJogador(lista, novo->player_fifa_api_id);
+
+            // Remoção
+            lista = removerJogador(lista, novo->player_fifa_api_id);
+
+            auto endLatencia = chrono::high_resolution_clock::now();
+            somaLatencia += chrono::duration<double, micro>(endLatencia - startLatencia).count();
+        }
+
+        double mediaBusca = somaBusca / 100.0;
+        double mediaLatencia = somaLatencia / 100.0;
+
+        cout << "📈 Tempo médio de busca: " << mediaBusca << " µs" << endl;
+        cout << "⏱️ Latência média (inserção + busca + remoção): " << mediaLatencia << " µs" << endl;
+
+        liberarLista(lista);
+    }
+}
+
+
 int main() {
     string nomeArquivo = "dataset_limpo3.csv";
     Jogador* lista = lerCSV(nomeArquivo);
@@ -276,7 +429,10 @@ int main() {
         cout << "2. Buscar jogador por ID\n";
         cout << "3. Remover jogador\n";
         cout << "4. Imprimir todos os jogadores\n";
-        cout << "5. Sair\n";
+        cout << "5. Uso de memoria\n";
+        cout << "6. Tempo medio de Acesso\n";
+        cout << "7. Escalabilidade e latência média\n";
+        cout << "8. Sair\n";
         cout << "Escolha uma opcao: ";
         cin >> opcao;
 
@@ -295,13 +451,23 @@ int main() {
                 int id;
                 cout << "Digite o ID do jogador a buscar: ";
                 cin >> id;
+
+                auto start = chrono::high_resolution_clock::now();
                 Jogador* encontrado = buscarJogador(lista, id);
+                auto end = chrono::high_resolution_clock::now();
+
                 if (encontrado != nullptr) {
                     cout << "Jogador encontrado: ID " << encontrado->player_fifa_api_id
                          << " | Overall: " << encontrado->overall_rating
                          << " | Foot: " << encontrado->preferred_foot << endl;
+
+                        double tempoBusca = chrono::duration<double, micro>(end - start).count();
+                        cout << "Tempo de Busca: " << tempoBusca << " µs" << endl;
+
                 } else {
                     cout << "Jogador nao encontrado.\n";
+                    double tempoBusca = chrono::duration<double, micro>(end - start).count();
+                    cout << "Tempo de remoção: " << tempoBusca << " µs" << endl;
                 }
                 break;
             }
@@ -309,20 +475,46 @@ int main() {
                 int id;
                 cout << "Digite o ID do jogador a remover: ";
                 cin >> id;
+                auto start = high_resolution_clock::now();
                 lista = removerJogador(lista, id);
+                auto end = high_resolution_clock::now();
+                double tempoRemocao = duration<double, micro>(end - start).count(); // tempo em microssegundos
+                cout << "Tempo de remoção: " << tempoRemocao << " µs" << endl;
                 break;
             }
             case 4:
                 imprimirLista(lista);
                 break;
-            case 5:
+
+            case 5: {
+                int totalNos = contarNos(lista);
+                size_t tamanhoNo = sizeof(Jogador); // tamanho em bytes de cada nó
+
+                size_t totalBytes = totalNos * tamanhoNo;
+                double totalKB = totalBytes / 1024.0;
+
+                cout << "Total de nós: " << totalNos << endl;
+                cout << "Uso estimado de memória: " << totalKB << " KB" << endl;
+                break; }
+
+            case 6: {   
+                medirTempoMedioAcesso(lista, 100); // 100 buscas aleatórias
+                break;
+                }
+
+            case 7: {
+                testarEscalabilidadeELatencia("dataset_limpo3.csv");
+                break;
+                }
+
+            case 8:
                 cout << "Encerrando programa...\n";
                 liberarLista(lista);
                 break;
             default:
                 cout << "Opcao invalida!\n";
         }
-    } while (opcao != 5);
+    } while (opcao != 8);
 
     return 0;
 }
