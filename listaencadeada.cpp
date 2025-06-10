@@ -3,7 +3,9 @@
 #include <sstream>
 #include <vector>
 #include <string>
+#include <chrono>
 using namespace std;
+using namespace chrono;
 
 // Estrutura do nó da lista encadeada
 struct Jogador {
@@ -168,7 +170,7 @@ Jogador* buscarJogador(Jogador* inicio, int id) {
 }
 
 // Adicionar novo jogador manualmente
-Jogador* adicionarJogador(Jogador* inicio) {
+pair<Jogador*, double> adicionarJogador(Jogador* inicio) {
     Jogador* novo = new Jogador;
 
     cout << "Digite o ID do jogador: ";
@@ -218,8 +220,12 @@ Jogador* adicionarJogador(Jogador* inicio) {
     novo->standing_tackle = 50;
     novo->sliding_tackle = 50;
 
+    auto start = chrono::high_resolution_clock::now(); //mede tempo inicial
     novo->proximo = inicio;
-    return novo;
+    auto end = chrono::high_resolution_clock::now();
+    double tempo = chrono::duration<double, milli>(end - start).count();//calcula tempo total
+    return make_pair(novo, tempo);
+
 }
 
 // Remover jogador por ID
@@ -275,9 +281,16 @@ int main() {
         cin >> opcao;
 
         switch (opcao) {
-            case 1:
-                lista = adicionarJogador(lista);
-                break;
+            case 1:{
+               
+                pair<Jogador*, double> resultado = adicionarJogador(lista);
+                lista = resultado.first;
+                double tempo = resultado.second;
+
+                cout << "Tempo de inserção: " << tempo << " ms" << endl;
+            break;
+            
+            }
             case 2: {
                 int id;
                 cout << "Digite o ID do jogador a buscar: ";
