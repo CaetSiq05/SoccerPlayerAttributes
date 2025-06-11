@@ -220,12 +220,110 @@ double medirLatenciaMedia(KDTree& tree, const vector<Player>& pontos) {
     return total / n;
 }
 
+void estatisticasBasicas(const vector<Player>& jogadores) {
+    if (jogadores.empty()) {
+        cout << "Nenhum dado disponível.\n";
+        return;
+    }
+
+    double somaOverall = 0, somaPotential = 0;
+    double somaQuadradoOverall = 0, somaQuadradoPotential = 0;
+    int n = jogadores.size();
+
+    for (const auto& j : jogadores) {
+        somaOverall += j.overall_rating;
+        somaPotential += j.potential;
+        somaQuadradoOverall += j.overall_rating * j.overall_rating;
+        somaQuadradoPotential += j.potential * j.potential;
+    }
+
+    double mediaOverall = somaOverall / n;
+    double mediaPotential = somaPotential / n;
+    double desvioOverall = sqrt((somaQuadradoOverall / n) - (mediaOverall * mediaOverall));
+    double desvioPotential = sqrt((somaQuadradoPotential / n) - (mediaPotential * mediaPotential));
+
+    cout << "\n===== Estatísticas =====\n";
+    cout << "Media Overall: " << mediaOverall << ", Desvio Padrão: " << desvioOverall << endl;
+    cout << "Media Potential: " << mediaPotential << ", Desvio Padrão: " << desvioPotential << endl;
+}
+
+void agruparPorPreferredFoot(const vector<Player>& jogadores) {
+    int destro = 0, canhoto = 0, outros = 0;
+
+    for (const auto& j : jogadores) {
+        if (j.preferred_foot == "right" || j.preferred_foot == "Right")
+            destro++;
+        else if (j.preferred_foot == "left" || j.preferred_foot == "Left")
+            canhoto++;
+        else
+            outros++;
+    }
+
+    cout << "\n===== Agrupamento por Preferred Foot =====\n";
+    cout << "Destros: " << destro << "\nCanhotos: " << canhoto << "\nOutros: " << outros << endl;
+}
+
+void filtrarOrdenarJogadores(const vector<Player>& jogadores) {
+    vector<Player> filtrados;
+
+    for (const auto& j : jogadores) {
+        if (j.overall_rating >= 80) {
+            filtrados.push_back(j);
+        }
+    }
+
+    sort(filtrados.begin(), filtrados.end(), [](const Player& a, const Player& b) {
+        return a.potential > b.potential;
+    });
+
+    cout << "\n===== Jogadores com Overall >= 80 ordenados por Potential =====\n";
+    for (const auto& j : filtrados) {
+        j.print();
+    }
+}
+
+Player buscarSubstitutoSemelhante(const Player& lesionado, const vector<Player>& jogadores) {
+    Player substituto;
+    double menorDistancia = numeric_limits<double>::max();
+    bool encontrado = false;
+
+    for (const auto& j : jogadores) {
+        if (j.player_fifa_api_id == lesionado.player_fifa_api_id) continue; // Ignora o próprio jogador
+
+        double dist = 0;
+        for (int i = 0; i < K; ++i) {
+            dist += pow(j.features[i] - lesionado.features[i], 2);
+        }
+        dist = sqrt(dist);
+
+        if (dist < menorDistancia) {
+            menorDistancia = dist;
+            substituto = j;
+            encontrado = true;
+        }
+    }
+
+    if (encontrado)
+        return substituto;
+    else
+        return Player(); // Retorna vazio se não encontrar
+}
+
 
 int main() {
     KDTree tree;
     ifstream file("dataset_limpo3.csv");
+    vector<Player> historicoInseridos;
+
     string line;
     getline(file, line); // cabeçalho
+
+    while (getline(file, line)) {
+    Player p = parseCSVLine(line);
+    tree.insert(p);
+    historicoInseridos.push_back(p);  // <-- isso resolve seu problema
+}
+
     while (getline(file, line)) {
         Player p = parseCSVLine(line);
         tree.insert(p);
@@ -239,7 +337,11 @@ int main() {
         cout << "3. Remover jogador\n";
         cout << "4. Imprimir todos os jogadores\n";
         cout << "5. Benchmarks\n";
-        cout << "6. Sair\n";
+        cout << "6. Calculo Estatisticos\n";
+        cout << "7. Agrupar Por PreferredFoot\n";
+        cout << "8. Ordenar por Overall\n";
+        cout << "9. Substituicao de Jogador\n";
+        cout << "10. Sair\n";
         cout << "Escolha uma opcao: ";
         cin >> opcao;
 
@@ -252,6 +354,9 @@ int main() {
             fill(begin(p.features), end(p.features), 0.0f);
             p.features[0] = p.overall_rating;
             p.features[1] = p.potential;
+            tree.insert(p);
+            historicoInseridos.push_back(p); // <-- Adiciona ao vetor para estatísticas
+
             tree.insert(p);
         } else if (opcao == 2) {
             int id;
@@ -293,7 +398,33 @@ int main() {
         testarEscalabilidade();
         }
 
-    } while (opcao != 6);
+          else if (opcao == 6) {
+            estatisticasBasicas(historicoInseridos);
+        }
+
+          else if (opcao == 7) {
+            agruparPorPreferredFoot(historicoInseridos);
+        }
+          else if (opcao == 8) {
+           filtrarOrdenarJogadores(historicoInseridos);
+        }
+        else if (opcao == 9) {
+    int id;
+    cout << "Digite o ID do jogador lesionado: ";
+    cin >> id;
+    Player* lesionado = tree.search(id);
+    if (lesionado) {
+        Player substituto = buscarSubstitutoSemelhante(*lesionado, historicoInseridos);
+        cout << "Jogador substituto mais semelhante encontrado:\n";
+        substituto.print();
+    } else {
+        cout << "Jogador lesionado nao encontrado.\n";
+    }
+
+        }
+
+} while (opcao != 9);
 
     return 0;
 }
+
