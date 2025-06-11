@@ -36,6 +36,7 @@ private:
     size_t capacity;
     size_t totalCollisions;
     size_t rehashCount;
+    size_t totalInserts;
     hash<int> hasher;
     mt19937 rng;
 
@@ -135,11 +136,15 @@ public:
         for (const auto& e : table2)
             if (e.occupied) count++;
 
+        double loadFactor = (double)count / (2 * capacity);
+        double colisionRate = (totalInserts > 0) ? ((double)totalCollisions / totalInserts) * 100.0 : 0.0;
+
         cout << "Capacidade total (duas tabelas): " << 2 * capacity << endl;
         cout << "Elementos armazenados: " << count << endl;
-        cout << "Fator de carga: " << (double)count / (2 * capacity) << endl;
+        cout << "Fator de carga: " << loadFactor << endl;
         cout << "Total de colisões: " << totalCollisions << endl;
         cout << "Número de rehashes: " << rehashCount << endl;
+        cout << "Taxa de colisões: " << colisionRate << "%\n";
     }
 };
 
